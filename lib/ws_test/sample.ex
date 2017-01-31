@@ -4,6 +4,12 @@ defmodule WsTest.Sample do
     Socket.Web.connect! "echo.websocket.org"
   end
 
+  def start_listen(socket) do
+    spawn(fn ->
+      listen(socket)
+    end)
+  end
+
   def listen(socket) do
     case socket |> Socket.Web.recv! do
       {:ping, _} ->
