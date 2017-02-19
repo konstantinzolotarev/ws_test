@@ -5,12 +5,12 @@ defmodule WsTest.Client do
       GenServer.start_link(__MODULE__, state, name: __MODULE__)
   end
 
-  def recv, do: GenServer.cast(__MODULE__, :recv)
-
   def text, do: GenServer.cast(__MODULE__, :text)
 
   def init(state) do
     socket = Socket.Web.connect! "echo.websocket.org"
+    pid = self()
+    spawn(fn -> listen(socket, pid) end)
     {:ok, %{state | socket: socket}}
   end
 
@@ -18,21 +18,16 @@ defmodule WsTest.Client do
     socket |> Socket.Web.send!({:pong, ""})
   end
 
-  def listen(socket) do
+  def listen(socket, process) do
     case socket |> Socket.Web.recv! do
-      {:text, data} ->
-        IO.puts "text"
-        send self(), {:socket, :text, data}
+      {:text, text} ->
+        IO.inspect process
+        send process, {:socket, :text, text}
       {:ping, _} ->
         IO.puts "ping/pong"
         socket |> pong
     end
-    socket |> listen
-  end
-
-  def handle_cast(:recv, %{socket: socket} = state) do
-    socket |> listen
-    {:noreply, %{state | socket: socket}}
+    socket |> listen(process)
   end
 
   def handle_cast(:text, %{socket: socket} = state) do
@@ -43,5 +38,6 @@ defmodule WsTest.Client do
   def handle_info({:socket, :text, text}, state) do
     IO.inspect text
     IO.inspect state
+    {:noreply, state}
   end
 end
