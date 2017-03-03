@@ -34,4 +34,8 @@ defmodule WsTest.Eris do
     socket |> msg({:text, ~s/{"jsonrpc": "2.0", "method": "erisdb.getBlockchainInfo", "id":"1"}/})
   end
 
+  def subscribe_newblock(socket) do
+    socket |> msg({:text, ~s/{"jsonrpc": "2.0", "method": "erisdb.eventSubscribe", "id":"1", "params": { "event_id": "NewBlock" }}/})
+  end
+
 end
