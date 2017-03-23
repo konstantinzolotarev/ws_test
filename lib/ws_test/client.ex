@@ -1,16 +1,19 @@
 defmodule WsTest.Client do
   use GenServer
 
+  @socketUrl "echo.websocket.org"
+
   def start_link(state \\ %{socket: nil}) do
       GenServer.start_link(__MODULE__, state, name: __MODULE__)
   end
 
-  def text, do: GenServer.cast(__MODULE__, :text)
+  def text(msg), do: GenServer.cast(__MODULE__, {:text, msg})
 
   def init(state) do
-    socket = Socket.Web.connect! "echo.websocket.org"
+    socket = Socket.Web.connect! @socketUrl
+    # Start proccess
     pid = self()
-    spawn(fn -> listen(socket, pid) end)
+    send(pid, {:start_listener, pid})
     {:ok, %{state | socket: socket}}
   end
 
@@ -18,26 +21,40 @@ defmodule WsTest.Client do
     socket |> Socket.Web.send!({:pong, ""})
   end
 
-  def listen(socket, process) do
+  def listen(socket, pid) do
+    IO.puts "Started listen"
     case socket |> Socket.Web.recv! do
       {:text, text} ->
-        IO.inspect process
-        send process, {:socket, :text, text}
+        IO.inspect pid
+        # send pid, {:socket, :text, text}
       {:ping, _} ->
-        IO.puts "ping/pong"
-        socket |> pong
+        IO.puts "ping received"
+        send(pid, {:send_pong})
+      {:close, _} ->
+        IO.puts "Socket closed !"
+        IO.inspect socket
     end
-    socket |> listen(process)
+    socket |> listen(pid)
   end
 
-  def handle_cast(:text, %{socket: socket} = state) do
-    socket |> Socket.Web.send!({:text, "Some text"})
+  def handle_cast({:text, msg}, %{socket: socket} = state) do
+    socket |> Socket.Web.send!({:text, msg})
     {:noreply, %{state | socket: socket}}
   end
 
-  def handle_info({:socket, :text, text}, state) do
-    IO.inspect text
-    IO.inspect state
+  def handle_info({:start_listener, pid}, %{socket: socket} = state) do
+    IO.inspect self()
+    socket
+    |> listen(pid)
+
     {:noreply, state}
   end
+
+  def handle_info({:send_pong}, %{socket: socket} = state) do
+    IO.puts "Pong sent"
+    socket
+    |> pong
+    {:noreply, state}
+  end
+
 end
